@@ -1,9 +1,7 @@
 import asyncio
+import aiofiles
+import aiohttp
 import time
-import urllib3
-import sys
-import os
-import urllib.request
 import re
 import configparser
 import glob
@@ -78,13 +76,19 @@ class prom_metrics():
         self.metrics_data[metric_dict['timestamp']] = []
         return metric_dict
 
-    def __get_metrics(self):
-        req = urllib.request.Request(self.config.get('url'), method='GET')
-        # 需要处理超时/报错
-        response = urllib.request.urlopen(req, timeout=5.0)
+    async def __get_metrics(self):
+        # req = urllib.request.Request(self.config.get('url'), method='GET')
+        # # 需要处理超时/报错
+        # response = urllib.request.urlopen(req, timeout=5.0)
+        # self.get_timestamp = str(int(time.time()))
+        # res = response.read().decode()
+        async with aiohttp.ClientSession() as client:
+            async with session.get(self.config.get('url')) as response:
+                status_code = response.status
+                res = await response.text()
+
         self.get_timestamp = str(int(time.time()))
-        res = response.read().decode()
-        if response.code == 200:
+        if status_code == 200:
             return res
         else:
             return 'prom_cronjob_up 0 {}'.format(self.get_timestamp)
@@ -136,24 +140,24 @@ class prom_metrics():
                                       i['value'], i['timestamp'])
             self.metrics_data[i['timestamp']].append(s)
 
-    def start(self):
+    async def start(self):
         print(self.config)
         print(self.config.get('url'))
         # 获取监控数据
-        metrics_data = self.__get_metrics()
+        metrics_data = await self.__get_metrics()
         # 拆分数据
         self.__recombine(metrics_data)
         self.__replace()
         prom_file = '{}/{}.prom'.format(self.prom_path,
                                         self.config.get('name'))
-        with open(prom_file, 'w') as f:
+        async with aiofiles.open(prom_file, 'w') as f:
             for k in sorted(self.metrics_data.keys()):
-                f.writelines(self.metrics_data[k])
+                await f.writelines(self.metrics_data[k])
 
-def run(config,prom_path):
+async def run(config,prom_path):
     logging.debug('config : {}'.format(config))
     p = prom_metrics(config,prom_path)
-    p.start()
+    await p.start()
 
 def main(config_path, prom_path):
     config_data = config(config_path)
