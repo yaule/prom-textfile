@@ -1,13 +1,13 @@
+import argparse
 import asyncio
-import aiofiles
-import aiohttp
-import time
-import re
 import configparser
 import glob
-import argparse
 import logging
+import re
+import time
 
+import aiofiles
+import aiohttp
 
 # config
 # name  url  interval label'default label {prom_cronjob_metric="caddy"}' value times$(date +%s)
@@ -82,7 +82,7 @@ class prom_metrics():
         # response = urllib.request.urlopen(req, timeout=5.0)
         # self.get_timestamp = str(int(time.time()))
         # res = response.read().decode()
-        async with aiohttp.ClientSession() as client:
+        async with aiohttp.ClientSession() as session:
             async with session.get(self.config.get('url')) as response:
                 status_code = response.status
                 res = await response.text()
@@ -119,7 +119,7 @@ class prom_metrics():
         prom_label_text = '{'
         label_dict.update(self.default_label)
         for d in sorted(label_dict.keys()):
-            label_dict[d]
+            # label_dict[d]
             prom_label_text += '{}="{}",'.format(d, label_dict[d])
         prom_label_text = re.sub(r',$', '', prom_label_text)
         prom_label_text += '}'
@@ -154,44 +154,31 @@ class prom_metrics():
             for k in sorted(self.metrics_data.keys()):
                 await f.writelines(self.metrics_data[k])
 
-async def run(config,prom_path):
+
+async def run(config, prom_path):
     logging.debug('config : {}'.format(config))
-    p = prom_metrics(config,prom_path)
+    p = prom_metrics(config, prom_path)
     await p.start()
 
-def main(config_path, prom_path):
+
+async def main(config_path, prom_path):
     config_data = config(config_path)
-    
-    # for conf in config_data:
-    #     logging.debug('config : {}'.format(conf))
-    #     p = prom_metrics(conf,prom_path)
-    #     p.start()
-    loop = asyncio.get_event_loop()
+
     background_tasks = set()
 
     for i in config_data:
-        task = asyncio.create_task(run(i,prom_path))
-
-        # Add task to the set. This creates a strong reference.
+        task = run(i, prom_path)
         background_tasks.add(task)
 
-        # To prevent keeping references to finished tasks forever,
-        # make each task remove its own reference from the set after
-        # completion:
-        task.add_done_callback(background_tasks.discard)
+    await asyncio.gather(*background_tasks)
 
-    try:
-        # Run the event loop
-        loop.run_forever()
-    finally:
-        # We are done. Close sockets and the event loop.
-
-        loop.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path','-c',required=True, help='path: /etc/prometheus-node-exporter-cronjob')
-    parser.add_argument('--prometheus_node_exporter_textfile_path','-p',default='/var/lib/prometheus/node-exporter/', help='prometheus node exporter textfile path: default: /var/lib/prometheus/node-exporter/')
+    parser.add_argument('--config_path', '-c', required=True,
+                        help='path: /etc/prometheus-node-exporter-cronjob')
+    parser.add_argument('--prometheus_node_exporter_textfile_path', '-p', default='/var/lib/prometheus/node-exporter/',
+                        help='prometheus node exporter textfile path: default: /var/lib/prometheus/node-exporter/')
 
     parser.add_argument('--debug', action="store_true", help='debug')
 
@@ -205,5 +192,5 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO,
                             format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
-    main(args.config_path+'/*.ini', args.prometheus_node_exporter_textfile_path)
-
+    asyncio.run(main(args.config_path+'/*.ini',
+                     args.prometheus_node_exporter_textfile_path))
