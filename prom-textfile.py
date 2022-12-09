@@ -33,10 +33,12 @@ def config(config_path):
     config_file = glob.glob(config_path)
     config_data = []
     for f in config_file:
-        f_path = config_path + '/' + f
-        logging.info(f)
         config.read(f)
-        config_data.append(dict(config['DEFAULT']))
+        for k in config.keys():
+            d = dict(config[k])
+            if d:
+                logging.debug('file: {} ,config name: {} ,config : {}'.format(f,k,d))
+                config_data.append(d)
     return config_data
 
 
@@ -141,18 +143,21 @@ class prom_metrics():
             self.metrics_data[i['timestamp']].append(s)
 
     async def start(self):
-        print(self.config)
-        print(self.config.get('url'))
-        # 获取监控数据
-        metrics_data = await self.__get_metrics()
-        # 拆分数据
-        self.__recombine(metrics_data)
-        self.__replace()
-        prom_file = '{}/{}.prom'.format(self.prom_path,
-                                        self.config.get('name'))
-        async with aiofiles.open(prom_file, 'w') as f:
-            for k in sorted(self.metrics_data.keys()):
-                await f.writelines(self.metrics_data[k])
+
+        while True:
+            logging.info(self.config)
+            # 获取监控数据
+            metrics_data = await self.__get_metrics()
+            # 拆分数据
+            self.__recombine(metrics_data)
+            self.__replace()
+            prom_file = '{}/{}.prom'.format(self.prom_path,
+                                            self.config.get('name'))
+            async with aiofiles.open(prom_file, 'w') as f:
+                for k in sorted(self.metrics_data.keys()):
+                    await f.writelines(self.metrics_data[k])
+                logging.debug('write prom file done.')
+            await asyncio.sleep(int(self.config.get('interval')))
 
 
 async def run(config, prom_path):
@@ -163,11 +168,11 @@ async def run(config, prom_path):
 
 async def main(config_path, prom_path):
     config_data = config(config_path)
-
+    logging.debug('start config:{}'.format(config_data))
     background_tasks = set()
 
     for i in config_data:
-        task = run(i, prom_path)
+        task = asyncio.create_task(run(i, prom_path))
         background_tasks.add(task)
 
     await asyncio.gather(*background_tasks)
