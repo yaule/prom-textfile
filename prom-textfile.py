@@ -142,13 +142,19 @@ class prom_metrics():
         else:
             return 'prom_cronjob_up 0'
 
-    def __recombine(self, raw_metrics_data: str):
-        self.metrics_data_recombine = []
-        # 整理出是监控数据的数据，并转成dict
-        for l in set(raw_metrics_data.split('\n')):
-            if len(re.findall(r'^#', l)) == 0 and l != '':
-                metric = self.__metric_dict(l)
-                self.metrics_data_recombine.append(metric)
+    def __recombine_line(self, line: str):
+        '''
+        整理出最终的监控数据，并返回
+        '''
+
+        if len(re.findall(r'^#', line)) == 0 and line != '':
+            metric = self.__metric_dict(line)
+            end_metric = self.__replace_line(metric)
+            logging.debug('__recombine_line metric : {}'.format(metric))
+            logging.debug('__recombine_line end_metric : {}'.format(end_metric))
+            return end_metric
+        else:
+            return line+'\n'
 
     def __label_to_dict(self, label: str):
         '''
@@ -179,7 +185,7 @@ class prom_metrics():
         logging.debug('__label_to_promtext :: {}'.format(prom_label_text))
         return prom_label_text
 
-    def __replace(self):
+    def __replace_line(self,line):
         '''
         更新label
         添加/修正 timestamp,按照timestamp排序
@@ -189,46 +195,46 @@ class prom_metrics():
             ]
         }
         '''
-        for i in self.metrics_data_recombine:
-            logging.debug('replace {}'.format(i))
-            if i.get('metric_timestamp'): i['label']['metric_timestamp'] = i.get('metric_timestamp')
-            s = '{}{} {}\n'.format(i['name'], self.__label_to_promtext(i['label']),
-                                      i['value'])
-            self.metrics_data[i['timestamp']].append(s)
 
-    async def start(self):
+        logging.debug('replace {}'.format(line))
+        if line.get('metric_timestamp'): line['label']['metric_timestamp'] = line.get('metric_timestamp')
+        s = '{}{} {}\n'.format(line['name'], self.__label_to_promtext(line['label']),
+                                    line['value'])
+        return s
 
+    async def start_line(self):
         while True:
             logging.info(self.config)
             # 获取监控数据
             metric_data = await self.__get_metrics()
             logging.debug('row metric data : {}'.format(metric_data))
             # 拆分数据
-            self.__recombine(metric_data)
-            logging.debug('recombine metric data : {}'.format(
-                self.metrics_data_recombine))
-            self.__replace()
-            logging.debug('end metric data : {}'.format(self.metrics_data))
+            metrics_data_list = list(metric_data.split('\n'))
+            for n,l in enumerate(metrics_data_list):
+                logging.debug('line : {} {}'.format(n,l))
+                metrics_data_list[n] = self.__recombine_line(l)
+
             prom_file = '{}/{}.prom'.format(self.prom_path,
                                             self.config.get('prom_file_name'))
 
             with open(prom_file, 'w') as f:
-                for k in sorted(self.metrics_data.keys()):
-                    f.writelines(set(self.metrics_data[k]))
+                for n,d in enumerate(metrics_data_list):
+                    logging.debug('write line : {} {}'.format(n,d))
+                    f.writelines(d)
 
             logging.info('{} : write prom file {} done.'.format(
                     self.config.get('prom_file_name'), prom_file))
+
             if self.config['daemon']:
                 break
             else:
                 await asyncio.sleep(int(self.config.get('interval')))
 
 
-
 async def run(config, prom_path):
     logging.debug('config : {}, prom_path: {}'.format(config,prom_path))
     p = prom_metrics(config, prom_path)
-    await p.start()
+    await p.start_line()
 
 
 async def main(config_path, prom_path,daemon):
