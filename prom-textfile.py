@@ -118,11 +118,14 @@ class prom_metrics():
             metric_dict['value'] = r[0][2]
             if r[0][3] != '':
                 if len(str(r[0][3])) > timestamp_count:
-                    date_time = datetime.datetime.fromtimestamp(int(r[0][3][:timestamp_count]))
-
-                    metric_dict['metric_timestamp'] = date_time.strftime('%Y-%m-%d_%H:%M:%S+0')
+                    if abs(int(self.get_timestamp) - int(r[0][3][:timestamp_count])) > 600:
+                        date_time = datetime.datetime.fromtimestamp(int(r[0][3][:timestamp_count]))
+                        print('time 111 : :',int(self.get_timestamp) - int(r[0][3][:timestamp_count]))
+                        metric_dict['metric_timestamp'] = date_time.strftime('%Y-%m-%d_%H:%M:%S+00')
                 else:
-                    date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
+                    if abs(int(self.get_timestamp) - int(r[0][3])) > 600:
+                        print('time : :',int(self.get_timestamp) - int(r[0][3]))
+                        date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
                     metric_dict['metric_timestamp'] = str(r[0][3])
         else:
             metric_dict['name'] = 'prom_cronjob_up'
