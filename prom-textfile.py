@@ -119,14 +119,14 @@ class prom_metrics():
             if r[0][3] != '':
                 if len(str(r[0][3])) > timestamp_count:
                     if abs(int(self.get_timestamp) - int(r[0][3][:timestamp_count])) > 600:
-                        date_time = datetime.datetime.fromtimestamp(int(r[0][3][:timestamp_count]))
                         print('time 111 : :',int(self.get_timestamp) - int(r[0][3][:timestamp_count]))
+                        date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
                         metric_dict['metric_timestamp'] = date_time.strftime('%Y-%m-%d_%H:%M:%S+00')
                 else:
                     if abs(int(self.get_timestamp) - int(r[0][3])) > 600:
                         print('time : :',int(self.get_timestamp) - int(r[0][3]))
                         date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
-                    metric_dict['metric_timestamp'] = str(r[0][3])
+                        metric_dict['metric_timestamp'] = str(r[0][3])
         else:
             metric_dict['name'] = 'prom_cronjob_up'
             metric_dict['value'] = '0'
@@ -222,7 +222,7 @@ class prom_metrics():
                 break
             else:
                 await asyncio.sleep(int(self.config.get('interval')))
-                
+
 
 
 async def run(config, prom_path):
