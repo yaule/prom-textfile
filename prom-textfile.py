@@ -87,17 +87,83 @@ async def get_url(url):
     return msg.decode(), request.code
 
 
+class monitoring():
+
+    def __init__(self,daemon):
+        self.daemon = daemon
+
+    def __count_with_file(self,file_path,name):
+        if os.path.isfile(file_path):
+            with open(file_path,'r') as rf:
+                count = rf.readlines()
+                print('kong :',count)
+                try:
+                    counter = int(count[-1])
+                except IndexError:
+                    counter = 0
+            counter +=1
+        else:
+            counter = 1
+        print(name,file_path,'__count_with_file ::',counter)
+        with open(file_path,'w') as wf:
+            wf.writelines(str(counter))
+        
+        return counter
+
+    def __count_with_men(self,name):
+        try:
+            self.counter +=1
+        except AttributeError:
+            self.counter = 1
+        print(name,'__count_with_men ::',self.counter)
+
+    def __write_monitoring_prom(self,file_path,count):
+        monitor_metric_data = '''
+# HELP prom_textfile_job_count job count
+# TYPE prom_textfile_job_count counter
+prom_textfile_job_count {}
+'''.format(count)
+        with open(file_path,'w') as f:
+            f.writelines(monitor_metric_data)
+
+
+    async def monitoring_self(self,file_path):
+        if self.daemon:
+            while True:
+                self.__count_with_men('monitoring-self')
+                self.__write_monitoring_prom(file_path,self.counter)
+                await asyncio.sleep(5)
+        else:
+            counter = self.__count_with_file('/tmp/prom-text-self.txt','monitoring-self')
+            self.__write_monitoring_prom(file_path,counter)
+            await asyncio.sleep(0.1)
+
+    def monitoring_job(self,interval:int,count_file):
+        # name = 
+        # file_path = 
+        if self.daemon:
+            while True:
+                self.__count_with_men('monitoring-job')
+                print('monitoring-job mem: ',self.counter)
+                return self.counter
+        else:
+            print('monitoring-job file ',count_file)
+            count = self.__count_with_file(count_file,'monitoring-job')
+            return count
+
+
 class prom_metrics():
 
     def __init__(self, config: dict, prom_path):
         self.config = config
         self.prom_path = prom_path
-        self.metrics_data = {}
+        # self.metrics_data = {}
         self.default_label = {
             'prom_cronjob_name': config.get('name'),
             'prom_cronjob_url': config.get('url'),
             'prom_cronjob_interval': 60 if self.config['daemon'] else config.get('interval')
         }
+
 
     def __metric_dict(self, metric: str):
         metric_dict = {
@@ -127,11 +193,10 @@ class prom_metrics():
                         print('time : :',int(self.get_timestamp) - int(r[0][3]))
                         date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
                         metric_dict['metric_timestamp'] = str(r[0][3])
+        if metric_dict['name'] == None:
+            return ''
         else:
-            metric_dict['name'] = 'prom_cronjob_up'
-            metric_dict['value'] = '0'
-        self.metrics_data[metric_dict['timestamp']] = []
-        return metric_dict
+            return metric_dict
 
     async def __get_metrics(self):
         # # 需要处理超时/报错
@@ -140,19 +205,25 @@ class prom_metrics():
         if code == 200:
             return res
         else:
-            return 'prom_cronjob_up 0'
+            return '''# HELP prom_textfile_job_up job counter
+# TYPE prom_textfile_job_up counter
+prom_textfile_job_up 0
+'''
 
     def __recombine_line(self, line: str):
         '''
         整理出最终的监控数据，并返回
         '''
-
+        print('__recombine_line line : ',line)
         if len(re.findall(r'^#', line)) == 0 and line != '':
             metric = self.__metric_dict(line)
-            end_metric = self.__replace_line(metric)
             logging.debug('__recombine_line metric : {}'.format(metric))
+            end_metric = self.__replace_line(metric)
+            
             logging.debug('__recombine_line end_metric : {}'.format(end_metric))
             return end_metric
+        elif line == '':
+            pass
         else:
             return line+'\n'
 
@@ -185,7 +256,7 @@ class prom_metrics():
         logging.debug('__label_to_promtext :: {}'.format(prom_label_text))
         return prom_label_text
 
-    def __replace_line(self,line):
+    def __replace_line(self,line:dict):
         '''
         更新label
         添加/修正 timestamp,按照timestamp排序
@@ -203,6 +274,7 @@ class prom_metrics():
         return s
 
     async def start_line(self):
+        monitoring_count = monitoring(self.config['daemon'])
         while True:
             logging.info(self.config)
             # 获取监控数据
@@ -211,12 +283,22 @@ class prom_metrics():
             # 拆分数据
             metrics_data_list = list(metric_data.split('\n'))
             for n,l in enumerate(metrics_data_list):
-                logging.debug('line : {} {}'.format(n,l))
-                metrics_data_list[n] = self.__recombine_line(l)
+                if l != '':
+                    logging.debug('line : {} {}'.format(n,l))
+                    metrics_data_list[n] = self.__recombine_line(l)
 
+            # prom file
             prom_file = '{}/{}.prom'.format(self.prom_path,
                                             self.config.get('prom_file_name'))
 
+            # monitoring job
+            monitoring_job_count = monitoring_count.monitoring_job(int(self.config.get('interval')),'/tmp/{}.txt'.format(self.config.get('prom_file_name')))
+
+            metrics_data_list.append('# HELP prom_textfile_job_count job count\n')
+            metrics_data_list.append('# TYPE prom_textfile_job_count counter\n')
+            metrics_data_list.append(self.__recombine_line('prom_textfile_job_count {}'.format(monitoring_job_count)))
+
+            # write metric
             with open(prom_file, 'w') as f:
                 for n,d in enumerate(metrics_data_list):
                     logging.debug('write line : {} {}'.format(n,d))
@@ -224,12 +306,11 @@ class prom_metrics():
 
             logging.info('{} : write prom file {} done.'.format(
                     self.config.get('prom_file_name'), prom_file))
-
+            # run model
             if self.config['daemon']:
-                break
-            else:
                 await asyncio.sleep(int(self.config.get('interval')))
-
+            else:
+                break
 
 async def run(config, prom_path):
     logging.debug('config : {}, prom_path: {}'.format(config,prom_path))
@@ -242,11 +323,17 @@ async def main(config_path, prom_path,daemon):
     logging.debug('start config:{}'.format(config_data))
     background_tasks = set()
 
+    # add task for all config job
     for i in config_data:
         i['daemon'] = daemon
         task = asyncio.create_task(run(i, prom_path))
         background_tasks.add(task)
 
+    # monitoring self
+    print('prom_path',prom_path)
+    monitoring_self = asyncio.create_task(monitoring(daemon).monitoring_self(prom_path+'/prom-textfile.prom'))
+    background_tasks.add(monitoring_self)
+    # run
     await asyncio.gather(*background_tasks)
 
 
@@ -258,7 +345,7 @@ if __name__ == '__main__':
                         help='prometheus node exporter textfile path: default: /var/lib/prometheus/node-exporter')
 
 
-    parser.add_argument('--daemon', action="store_false", help='daemon')
+    parser.add_argument('--daemon', action="store_true", help='daemon')
     parser.add_argument('--debug', action="store_true", help='debug')
 
     args = parser.parse_args()
@@ -276,6 +363,13 @@ if __name__ == '__main__':
     else:
         logger.setLevel(logging.INFO)
         ch.setLevel(logging.INFO)
+
+    # logging config
+    if args.daemon:
+        logging.info('run with daemon!')
+    else:
+        logging.info('run with cron')
+
     logging.info('arg: {}'.format(args))
     # run
     try:
