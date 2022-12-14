@@ -98,7 +98,6 @@ class monitoring():
         if os.path.isfile(file_path):
             with open(file_path,'r') as rf:
                 count = rf.readlines()
-                print('kong :',count)
                 try:
                     counter = int(count[-1])
                 except IndexError:
@@ -106,7 +105,7 @@ class monitoring():
             counter +=1
         else:
             counter = 1
-        print(name,file_path,'__count_with_file ::',counter)
+        logging.debug('__count_with_file :: {} {} {}'.format(name,file_path,counter))
         with open(file_path,'w') as wf:
             wf.writelines(str(counter))
         
@@ -117,7 +116,7 @@ class monitoring():
             self.counter +=1
         except AttributeError:
             self.counter = 1
-        print(name,'__count_with_men ::',self.counter)
+        logging.debug('__count_with_men ::  {}  {}',name,self.counter)
 
     def __write_monitoring_prom(self,file_path,count):
         monitor_metric_data = '''
@@ -146,10 +145,10 @@ prom_textfile_job_count {}
         if self.daemon:
             while True:
                 self.__count_with_men('monitoring-job')
-                print('monitoring-job mem: ',self.counter)
+                logging.debug('monitoring-job mem: {}'.format(self.counter))
                 return self.counter
         else:
-            print('monitoring-job file ',count_file)
+            logging.debug('monitoring-job file : {}'.format(count_file))
             count = self.__count_with_file(count_file,'monitoring-job')
             return count
 
@@ -187,12 +186,12 @@ class prom_metrics():
             if r[0][3] != '':
                 if len(str(r[0][3])) > timestamp_count:
                     if abs(int(self.get_timestamp) - int(r[0][3][:timestamp_count])) > 600:
-                        print('time 111 : :',int(self.get_timestamp) - int(r[0][3][:timestamp_count]))
+                        logging.debug('time 111 : : {}'.format(int(self.get_timestamp) - int(r[0][3][:timestamp_count])))
                         date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
                         metric_dict['metric_timestamp'] = date_time.strftime('%Y-%m-%d_%H:%M:%S+00')
                 else:
                     if abs(int(self.get_timestamp) - int(r[0][3])) > 600:
-                        print('time : :',int(self.get_timestamp) - int(r[0][3]))
+                        logging.debug('timestamp : : {}'.format(int(self.get_timestamp) - int(r[0][3])))
                         date_time = datetime.datetime.fromtimestamp(int(r[0][3]))
                         metric_dict['metric_timestamp'] = str(r[0][3])
         if metric_dict['name'] == None:
@@ -216,7 +215,7 @@ prom_textfile_job_up 0
         '''
         整理出最终的监控数据，并返回
         '''
-        print('__recombine_line line : ',line)
+        logging.debug('__recombine_line line : {}'.format(line))
         if len(re.findall(r'^#', line)) == 0 and line != '':
             metric = self.__metric_dict(line)
             logging.debug('__recombine_line metric : {}'.format(metric))
@@ -332,7 +331,7 @@ async def main(config_path, prom_path,daemon):
         background_tasks.add(task)
 
     # monitoring self
-    print('prom_path',prom_path)
+    logging.debug('prom_path : {}'.format(prom_path))
     monitoring_self = asyncio.create_task(monitoring(daemon).monitoring_self(prom_path+'/prom-textfile.prom'))
     background_tasks.add(monitoring_self)
     # run
