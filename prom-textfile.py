@@ -340,8 +340,8 @@ async def main(config_path, prom_path,daemon):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', '-c', default='/etc/prometheus-node-exporter-cronjob',
-                        help='path: /etc/prometheus-node-exporter-cronjob')
+    parser.add_argument('--config_path', '-c', default='/etc/prom-textfile',
+                        help='path: /etc/prom-textfile')
     parser.add_argument('--prometheus_node_exporter_textfile_path', '-p', default='/var/lib/prometheus/node-exporter',
                         help='prometheus node exporter textfile path: default: /var/lib/prometheus/node-exporter')
 

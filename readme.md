@@ -15,7 +15,7 @@
 # run
 
 ```sh
-python3 prom-textfile.py -c /etc/prometheus-node-exporter-cronjob -p /var/lib/prometheus/node-exporter --debug
+python3 prom-textfile.py -c /etc/prom-textfile -p /var/lib/prometheus/node-exporter --debug
 ```
 
 # add default job label
@@ -32,7 +32,7 @@ prom_textfile_job_count
 ## install prom-textfile
 
 ```sh
-sudo mkdir -p /etc/prometheus-node-exporter-cronjob
+sudo mkdir -p /etc/prom-textfile
 sudo curl -L 'https://raw.githubusercontent.com/yaule/prom-textfile/main/prom-textfile.py' -o /usr/bin/prom-textfile
 sudo chmod +x /usr/bin/prom-textfile
 ```
@@ -62,7 +62,7 @@ sudo systemctl enable prom-textfile
 ```sh
 sudo systemctl stop prom-textfile
 sudo systemctl disable prom-textfile
-sudo rm -rf /etc/prometheus-node-exporter-cronjob /usr/bin/prom-textfile /usr/lib/systemd/system/prom-textfile.service
+sudo rm -rf /etc/prom-textfile /usr/bin/prom-textfile /usr/lib/systemd/system/prom-textfile.service
 sudo systemctl daemon-reload
 ```
 
@@ -70,7 +70,7 @@ sudo systemctl daemon-reload
 ### install
 
 ```sh
-sudo mkdir -p /etc/prometheus-node-exporter-cronjob
+sudo mkdir -p /etc/prom-textfile
 sudo apt install supervisor -y
 # supervisord config
 sudo tee /etc/supervisor/supervisord.conf<<-EOF
@@ -123,7 +123,7 @@ sudo systemctl restart prometheus-node-exporter
 ### remove
 
 ```sh
-sudo rm -rf /etc/prometheus-node-exporter-cronjob
+sudo rm -rf /etc/prom-textfile
 sudo rm -f /etc/supervisor/conf.d/prom-textfile.conf
 sudo supervisorctl reload
 # remove supervisor
