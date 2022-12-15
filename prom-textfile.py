@@ -38,26 +38,28 @@ class ColorFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def config(config_path):
-    '''
-    get config
-    '''
-    config = configparser.ConfigParser()
-    # config.sections()
+class config():
+    def __init__(self,config_path):
+        self.config_path = config_path
+        self.config_data = []
 
-    config_file = glob.glob(config_path)
-    config_data = []
-    for f in config_file:
-        config.read(f)
+    def config_files(self):
+        config_files = glob.glob(self.config_path)
+        for f in config_files:
+            self.get_config_data(f)
+        return self.config_data
+
+    def get_config_data(self,file):
+        config = configparser.ConfigParser()
+        config.read(file)
         for k in config.keys():
             d = dict(config[k])
             if d:
-                s = f.split('/')[-1]
+                s = file.split('/')[-1]
                 d['prom_file_name'] = s[:-4] + '_' + k
                 logging.debug(
-                    'file: {} ,config name: {} ,config : {}'.format(f, k, d))
-                config_data.append(d)
-    return config_data
+                    'file: {} ,config name: {} ,config : {}'.format(file, k, d))
+                self.config_data.append(d)
 
 
 async def get_url(url):
@@ -116,7 +118,7 @@ class monitoring():
             self.counter +=1
         except AttributeError:
             self.counter = 1
-        logging.debug('__count_with_men ::  {}  {}',name,self.counter)
+        logging.debug('__count_with_men ::  {}  {}'.format(name,self.counter))
 
     def __write_monitoring_prom(self,file_path,count):
         monitor_metric_data = '''
@@ -175,7 +177,7 @@ class prom_metrics():
         }
         timestamp_count = len(self.get_timestamp)
         r = re.findall(
-            r'^(\w+)\s?\{?(.+=.+?)?\}?\s([\d+|\-|\.|\+|e]*)\s?(\d+)?$', metric)
+            r'^(\w+)\s?\{?(.+=.+?)?\}?\s([\d+|\-|\.|\+|e|NaN]*)\s?(\d+)?$', metric)
         logging.debug(
             '__metric dict :: metric: {}  regex: {}'.format(metric, r))
         if r:
@@ -320,8 +322,8 @@ async def run(config, prom_path):
 
 
 async def main(config_path, prom_path,daemon):
-    config_data = config(config_path)
-    logging.debug('start config:{}'.format(config_data))
+    config_data = config(config_path).config_files()
+    logging.info('start config:{}'.format(config_data))
     background_tasks = set()
 
     # add task for all config job
