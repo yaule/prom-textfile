@@ -135,7 +135,7 @@ sudo apt remove supervisor -y
 ### install
 
 ```sh
-sudo tee /usr/lib/systemd/system/prometheus-node-exporter-apt.timer <<-EOF
+sudo tee /usr/lib/systemd/system/prom-textfile.timer <<-EOF
 [Unit]
 Description=Run prom-textfile every 1 minute
 [Timer]
@@ -144,7 +144,7 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 EOF
-sudo tee /usr/lib/systemd/system/prometheus-node-exporter-apt.service <<-EOF
+sudo tee /usr/lib/systemd/system/prom-textfile.service <<-EOF
 [Unit]
 Description=Collect textfile metrics for prometheus-node-exporter
 [Service]
@@ -161,8 +161,8 @@ sudo systemctl start prom-textfile.service prom-textfile.timer
 ```sh
 sudo systemctl disable prom-textfile.timer prom-textfile.service
 sudo systemctl stop prom-textfile.service prom-textfile.timer
-sudo rm -f /usr/lib/systemd/system/prometheus-node-exporter-apt.timer
-sudo rm -f /usr/lib/systemd/system/prometheus-node-exporter-apt.service
+sudo rm -f /usr/lib/systemd/system/prom-textfile.timer
+sudo rm -f /usr/lib/systemd/system/prom-textfile.service
 sudo systemctl daemon-reload
 ```
 
