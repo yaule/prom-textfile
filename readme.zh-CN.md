@@ -346,3 +346,6 @@ sudo rm -f /usr/lib/systemd/system/prom-textfile.service
 sudo systemctl daemon-reload
 ```
 
+# 授权协议
+
+[GNU General Public License v3.0](LICENSE)

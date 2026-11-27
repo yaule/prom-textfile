@@ -345,3 +345,7 @@ sudo rm -f /usr/lib/systemd/system/prom-textfile.timer
 sudo rm -f /usr/lib/systemd/system/prom-textfile.service
 sudo systemctl daemon-reload
 ```
+
+# license
+
+[GNU General Public License v3.0](LICENSE)
